@@ -1,1 +1,2 @@
 flask-login
+pg8000
