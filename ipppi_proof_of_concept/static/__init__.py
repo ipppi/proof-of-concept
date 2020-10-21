@@ -18,11 +18,14 @@
 
 from importlib.resources import path
 
-with path('ipppi_proof_of_concept.static', 'index.html') as p:
-    with open(p) as f: index_html = f.read()
 
-with path('ipppi_proof_of_concept.static', 'register.html') as p:
-    with open(p) as f: register_html = f.read()
+def read(resource):
+    with path('ipppi_proof_of_concept.static', resource) as p:
+        with open(p) as f: return f.read()
 
-with path('ipppi_proof_of_concept.static', 'login.html') as p:
-    with open(p) as f: login_html = f.read()
+
+index_html = read('index.html')
+register_html = read('register.html')
+login_html = read('login.html')
+propose_names_html = read('propose_names.html')
+propose_versions_html = read('propose_versions.html')

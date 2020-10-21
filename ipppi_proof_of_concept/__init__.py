@@ -21,6 +21,7 @@
 __version__ = '0.0.1'
 
 from .auth import *
+from .proposal import *
 from .singletons import app
 from .static import index_html
 

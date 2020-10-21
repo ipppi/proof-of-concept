@@ -20,8 +20,7 @@ from crypt import crypt
 from hmac import compare_digest
 
 from flask import redirect, request, url_for
-from flask_login import (LoginManager, UserMixin, current_user,
-                         login_required, login_user, logout_user)
+from flask_login import LoginManager, UserMixin, login_user, logout_user
 
 from .singletons import app, con
 from .static import login_html, register_html
@@ -90,12 +89,6 @@ def login():
         return 'bad login'
     login_user(User(username))
     return redirect(url_for('index'))
-
-
-@app.route('/protected')
-@login_required
-def protected():
-    return f'Logged in as: {current_user.id}'
 
 
 @app.route('/logout')
