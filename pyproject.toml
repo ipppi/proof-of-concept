@@ -1,0 +1,22 @@
+[build-system]
+requires = ['flit_core >=2,<3']
+build-backend = 'flit_core.buildapi'
+
+[tool.flit.metadata]
+module = 'ipppi_proof_of_concept'
+author = 'Nguyễn Gia Phong'
+author-email = 'mcsinyx@disroot.org'
+home-page = 'https://github.com/ipppi/proof-of-concept'
+requires = ['flask-login', 'hasoil', 'ipfshttpclient>=0.7.0a1', 'pg8000']
+description-file = 'README.md'
+classifiers = [
+    'Development Status :: 1 - Planning',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
+    'Natural Language :: English',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python :: 3 :: Only',
+    'Topic :: Utilities']
+requires-python = '>=3.7'
+keywords = 'ipfs,package'
+license = 'AGPLv3+'

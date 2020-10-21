@@ -1,0 +1,28 @@
+name: Quick check
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Setup Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+
+    - name: Install tox
+      run: python -m pip install tox
+
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Main check
+      run: python -m tox -e lint
