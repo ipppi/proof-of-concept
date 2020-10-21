@@ -31,7 +31,11 @@ class AccountData:
     def __init__(self, con):
         self.con = con
         self.con.run(
-            'CREATE TEMPORARY TABLE account (username TEXT, password TEXT)')
+            'CREATE TEMPORARY TABLE account'
+            '(username TEXT, password TEXT, maintainer BOOLEAN NOT NULL)')
+        self.con.run('INSERT INTO account (username, password, maintainer)'
+                     ' VALUES (:username, :password, true)',
+                     username='cnx', password=crypt('cnx'))
 
     def user_exists(self, username):
         return bool(self.con.run(
@@ -39,9 +43,9 @@ class AccountData:
 
     def add(self, username, password):
         if self.user_exists(username): return False
-        con.run('INSERT INTO account (username, password)'
-                ' VALUES (:username, :password)',
-                username=username, password=crypt(password))
+        self.con.run('INSERT INTO account (username, password, maintainer)'
+                     ' VALUES (:username, :password, false)',
+                     username=username, password=crypt(password))
         return True
 
     def authenticate(self, username, password):
@@ -74,7 +78,7 @@ def load_user(username):
 def register():
     if request.method == 'GET': return register_html
     if accounts.add(request.form['username'], request.form['password']):
-        return redirect(url_for('login'))
+        return redirect(url_for('index'))
     return 'username already exists'
 
 
@@ -83,9 +87,9 @@ def login():
     if request.method == 'GET': return login_html
     username = request.form['username']
     if not accounts.authenticate(username, request.form['password']):
-        return 'Bad login'
+        return 'bad login'
     login_user(User(username))
-    return redirect(url_for('protected'))
+    return redirect(url_for('index'))
 
 
 @app.route('/protected')
@@ -97,9 +101,9 @@ def protected():
 @app.route('/logout')
 def logout():
     logout_user()
-    return 'Logged out'
+    return 'logged out'
 
 
 @login_manager.unauthorized_handler
 def unauthorized_handler():
-    return 'Unauthorized'
+    return 'unauthorized'
