@@ -20,4 +20,11 @@
 
 __version__ = '0.0.1'
 
-from .singletons import app  # noqa
+from .auth import *
+from .singletons import app
+from .static import index_html
+
+
+@app.route('/')
+def index():
+    return index_html
