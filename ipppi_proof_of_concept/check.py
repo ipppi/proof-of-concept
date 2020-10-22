@@ -16,26 +16,20 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with IPPPI.  If not, see <https://www.gnu.org/licenses/>.
 
-from os.path import basename, join
-from tempfile import TemporaryDirectory
-from urllib.request import urlopen
-
 from distlib.wheel import Wheel
 from hasoil import has_conflict
 from packaging.utils import canonicalize_name
 
+from .fetch import fetcher
+
 
 def check_for_conflicts(wheels):
-    with TemporaryDirectory() as d:
-        versions, requirements = {}, []
-        for whl in wheels:
-            filename = join(d, basename(whl))
-            with urlopen(whl) as fi, open(filename, 'wb') as fo:
-                fo.write(fi.read())
-            w = Wheel(filename)
-            versions[canonicalize_name(w.name)] = w.version
-            # Argh distlib.metadata.Metadata.dependencies is broken!
-            requirements.extend(w.metadata.todict().get('requires_dist', []))
+    versions, requirements = {}, []
+    for whl in wheels:
+        w = Wheel(fetcher[whl])
+        versions[canonicalize_name(w.name)] = w.version
+        # Argh distlib.metadata.Metadata.dependencies is broken!
+        requirements.extend(w.metadata.todict().get('requires_dist', []))
     print(versions, requirements)
     if has_conflict(versions, requirements): raise ValueError('conflicts!')
     print('OK!')  # Hey don't judge I'm in a hurry!

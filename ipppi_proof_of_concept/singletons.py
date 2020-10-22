@@ -18,9 +18,11 @@
 
 from secrets import token_bytes
 
+import ipfshttpclient
+import pg8000
 from flask import Flask
-from pg8000 import connect
 
 app = Flask(__name__)
 app.secret_key = token_bytes()
-pg = connect('postgres', password='postgres')
+pg = pg8000.connect('postgres', password='postgres')
+ipfs = ipfshttpclient.connect()  # this should be closed

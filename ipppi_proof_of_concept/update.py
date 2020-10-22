@@ -1,4 +1,4 @@
-# Flask app entry point
+# Update the package index
 # Copyright (C) 2020  Nguyễn Gia Phong
 #
 # This file is part of IPPPI.
@@ -16,17 +16,25 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with IPPPI.  If not, see <https://www.gnu.org/licenses/>.
 
-"""IPPPI Proof of Concept"""
+from flask import redirect, url_for
+from flask_login import login_required
 
-__version__ = '0.0.1'
-
-from .auth import *
-from .proposal import *
-from .singletons import app
-from .static import index_html
-from .update import *
+from .check import check_for_conflicts
+from .fetch import fetcher
+from .proposal import proposals
+from .singletons import app, ipfs
 
 
-@app.route('/')
-def index():
-    return index_html
+@app.route('/update/<uuid>', methods=['GET'])
+@login_required
+def update(uuid):
+    proposal = proposals[uuid]
+    try:
+        check_for_conflicts(proposal)
+    except:  # noqa
+        return "sounds good, doesn't work"
+    else:
+        for whl in proposal: print(ipfs.add(fetcher[whl]))
+    finally:
+        del proposals[proposal.uuid]
+    return redirect(url_for('index'))

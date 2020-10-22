@@ -143,7 +143,7 @@ def propose_whl():
         if pkg != 'submit':  # I'm sorry UCSB!
             proposal[pkg] = whl
     try:
-        check_for_conflicts(tuple(proposal))
+        check_for_conflicts(proposal)
     except:  # noqa
         proposal.set_status(conflicts=True)
     else:
@@ -161,6 +161,6 @@ def mine(): return mine_html.format(render(proposals.from_current_user()))
 def review():
     if request.method == 'GET':
         return review_html.format(render(proposals, review=True))
+    # Statically typed programmers hate this!
     uuid, = request.form.keys()
-    del proposals[uuid]
-    return redirect(url_for('index'))
+    return redirect(url_for('update', uuid=uuid))

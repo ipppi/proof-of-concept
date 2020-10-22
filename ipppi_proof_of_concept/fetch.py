@@ -1,4 +1,4 @@
-# Flask app entry point
+# Fetch and cache wheels
 # Copyright (C) 2020  Nguyễn Gia Phong
 #
 # This file is part of IPPPI.
@@ -16,17 +16,22 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with IPPPI.  If not, see <https://www.gnu.org/licenses/>.
 
-"""IPPPI Proof of Concept"""
-
-__version__ = '0.0.1'
-
-from .auth import *
-from .proposal import *
-from .singletons import app
-from .static import index_html
-from .update import *
+from functools import lru_cache
+from os.path import basename, join
+from tempfile import mkdtemp
+from urllib.request import urlopen
 
 
-@app.route('/')
-def index():
-    return index_html
+class WheelFetcher:
+    def __init__(self):
+        self.dir = mkdtemp(prefix='ipppi-')  # this needs clean up
+
+    @lru_cache(maxsize=None)
+    def __getitem__(self, whl):
+        filename = join(self.dir, basename(whl))
+        with urlopen(whl) as fi, open(filename, 'wb') as fo:
+            fo.write(fi.read())
+        return filename
+
+
+fetcher = WheelFetcher()
