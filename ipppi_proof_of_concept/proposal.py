@@ -23,7 +23,7 @@ from flask_login import current_user, login_required
 
 from .check import check_for_conflicts
 from .singletons import app, pg
-from .static import mine_html, propose_pkg_html, propose_whl_html
+from .static import mine_html, propose_pkg_html, propose_whl_html, review_html
 
 
 class Proposal:
@@ -34,6 +34,10 @@ class Proposal:
             pg.run('INSERT INTO proposal (uuid, proposer)'
                    ' VALUES (:uuid, :proposer)',
                    uuid=uuid, proposer=proposer)
+            self.proposer = proposer
+        else:
+            (self.proposer,), = pg.run('SELECT proposer FROM proposal'
+                                       ' WHERE uuid = :uuid', uuid=uuid)
 
     def __iter__(self):
         return (whl for whl, in self.pg.run(
@@ -60,16 +64,21 @@ class Proposal:
                     ' WHERE uuid = :uuid',
                     uuid=self.uuid, conflict=conflicts)
 
-    def to_html(self):
-        (conflict,), = self.pg.run(
-            'SELECT conflict FROM proposal WHERE uuid = :uuid', uuid=self.uuid)
+    def to_html(self, review):
+        (conflict,), = self.pg.run('SELECT conflict FROM proposal'
+                                   ' WHERE uuid = :uuid', uuid=self.uuid)
         mark = '❌' if conflict else '✔️'
         updates = ''.join(f'<li>{pkg} @ {whl}</li>'
                           for pkg, whl in self.pg.run(
                               'SELECT pkg, whl FROM whlupdate'
                               ' WHERE uuid = :uuid',
                               uuid=self.uuid))
-        return f'<p>{self.uuid} {mark}</p><ul>{updates}</ul>'
+        if not review:
+            return f'<p>{self.uuid} {mark}</p><ul>{updates}</ul>'
+        button = ('<form action=review method=POST>'
+                  f'<input type=submit name={self.uuid} value=approve></form>')
+        return (f'<p>{self.proposer}: {self.uuid} {mark}</p>'
+                f'{button}<ul>{updates}</ul>')
 
 
 class ProposalCollection:
@@ -84,6 +93,14 @@ class ProposalCollection:
     def __getitem__(self, uuid):
         return Proposal(self.pg, uuid)
 
+    def __delitem__(self, uuid):
+        self.pg.run('DELETE FROM proposal WHERE uuid = :uuid', uuid=uuid)
+        self.pg.run('DELETE FROM whlupdate WHERE uuid = :uuid', uuid=uuid)
+
+    def __iter__(self):
+        for uuid, in self.pg.run('SELECT uuid FROM proposal'):
+            yield Proposal(self.pg, uuid)
+
     def new(self):
         return Proposal(self.pg, uuid4().hex, current_user.get_id())
 
@@ -91,7 +108,7 @@ class ProposalCollection:
         for uuid, in self.pg.run('SELECT uuid FROM proposal'
                                  ' WHERE proposer = :proposer',
                                  proposer=current_user.get_id()):
-            yield Proposal(self.pg, uuid).to_html()
+            yield Proposal(self.pg, uuid)
 
 
 proposals = ProposalCollection(pg)
@@ -100,6 +117,10 @@ proposals = ProposalCollection(pg)
 def genform(packages):
     for pkg in packages:
         yield f'<input type=text name={pkg} id={pkg} placeholder={pkg}><br>'
+
+
+def render(proposal_listing, review=False):
+    return ''.join(proposal.to_html(review) for proposal in proposal_listing)
 
 
 @app.route('/propose_pkg', methods=['GET', 'POST'])
@@ -131,5 +152,14 @@ def propose_whl():
 
 @app.route('/mine', methods=['GET'])
 @login_required
-def mine():
-    return mine_html.format(''.join(proposals.from_current_user()))
+def mine(): return mine_html.format(render(proposals.from_current_user()))
+
+
+@app.route('/review', methods=['GET', 'POST'])
+@login_required
+def review():
+    if request.method == 'GET':
+        return review_html.format(render(proposals, review=True))
+    uuid, = request.form.keys()
+    del proposals[uuid]
+    return redirect(url_for('index'))
