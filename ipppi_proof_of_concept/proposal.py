@@ -23,7 +23,7 @@ from flask_login import current_user, login_required
 
 from .check import check_for_conflicts
 from .singletons import app, pg
-from .static import propose_pkg_html, propose_whl_html
+from .static import mine_html, propose_pkg_html, propose_whl_html
 
 
 class Proposal:
@@ -76,6 +76,19 @@ class ProposalCollection:
     def new(self):
         return Proposal(self.pg, uuid4().hex, current_user.get_id())
 
+    def from_current_user(self):
+        proposer = current_user.get_id()
+        for uuid, conflict in self.pg.run('SELECT uuid, conflict FROM proposal'
+                                          ' WHERE proposer = :proposer',
+                                          proposer=proposer):
+            mark = '❌' if conflict else '✔️'
+            updates = ''.join(f'<li>{pkg} @ {whl}</li>'
+                              for pkg, whl in self.pg.run(
+                                  'SELECT pkg, whl FROM whlupdate'
+                                  ' WHERE uuid = :uuid',
+                                  uuid=uuid))
+            yield f'<p>{uuid} {mark}</p><ul>{updates}</ul>'
+
 
 proposals = ProposalCollection(pg)
 
@@ -110,3 +123,9 @@ def propose_whl():
     else:
         proposal.set_status(conflicts=False)
     return redirect(url_for('index'))
+
+
+@app.route('/mine', methods=['GET'])
+@login_required
+def mine():
+    return mine_html.format(''.join(proposals.from_current_user()))
