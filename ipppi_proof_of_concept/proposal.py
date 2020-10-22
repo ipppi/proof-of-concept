@@ -19,7 +19,7 @@
 from uuid import uuid4
 
 from flask import redirect, request, session, url_for
-from flask_login import login_required
+from flask_login import current_user, login_required
 
 from .check import check_for_conflicts
 from .singletons import app, pg
@@ -27,47 +27,54 @@ from .static import propose_pkg_html, propose_whl_html
 
 
 class Proposal:
-    def __init__(self, pg, uuid):
+    def __init__(self, pg, uuid, proposer=None):
         self.pg = pg
         self.uuid = uuid
+        if proposer is not None:
+            pg.run('INSERT INTO proposal (uuid, proposer)'
+                   ' VALUES (:uuid, :proposer)',
+                   uuid=uuid, proposer=proposer)
 
     def __iter__(self):
         return (whl for whl, in self.pg.run(
-            'SELECT whl FROM proposal WHERE uuid = :uuid',
+            'SELECT whl FROM whlupdate WHERE uuid = :uuid',
             uuid=self.uuid))
 
     def __getitem__(self, pkg):
-        return self.pg.run('SELECT whl FROM proposal'
+        return self.pg.run('SELECT whl FROM whlupdate'
                            ' WHERE uuid = :uuid AND pkg = :pkg',
                            uuid=self.uuid, pkg=pkg)
 
     def __setitem__(self, pkg, whl):
-        self.pg.run('INSERT INTO proposal (uuid, pkg, whl)'
+        self.pg.run('INSERT INTO whlupdate (uuid, pkg, whl)'
                     ' VALUES (:uuid, :pkg, :whl)'
                     ' ON CONFLICT (uuid, pkg) DO UPDATE SET whl = :whl',
                     uuid=self.uuid, pkg=pkg, whl=whl)
 
+    def __delitem__(self, pkg):
+        self.pg.run('DELETE FROM whlupdate WHERE uuid = :uuid AND pkg = :pkg',
+                    uuid=self.uuid, pkg=pkg)
+
     def set_status(self, conflicts):
-        self.pg.run('INSERT INTO autocheck (uuid, conflict)'
-                    ' VALUES (:uuid, :conflict)'
-                    ' ON CONFLICT (uuid) DO UPDATE SET conflict = :conflict',
+        self.pg.run('UPDATE proposal SET conflict = :conflict'
+                    ' WHERE uuid = :uuid',
                     uuid=self.uuid, conflict=conflicts)
 
 
 class ProposalCollection:
     def __init__(self, pg):
         self.pg = pg
-        self.pg.run('CREATE TEMPORARY TABLE proposal ('
-                    ' uuid TEXT, pkg TEXT, whl TEXT,'
-                    ' PRIMARY KEY (uuid, pkg))')
-        self.pg.run('CREATE TEMPORARY TABLE autocheck ('
-                    ' uuid TEXT PRIMARY KEY, conflict BOOL)')
+        pg.run('CREATE TEMPORARY TABLE proposal ('
+               ' uuid TEXT PRIMARY KEY, proposer TEXT, conflict BOOL)')
+        pg.run('CREATE TEMPORARY TABLE whlupdate ('
+               ' uuid TEXT, pkg TEXT, whl TEXT,'
+               ' PRIMARY KEY (uuid, pkg))')
 
     def __getitem__(self, uuid):
         return Proposal(self.pg, uuid)
 
     def new(self):
-        return self[uuid4().hex]
+        return Proposal(self.pg, uuid4().hex, current_user.get_id())
 
 
 proposals = ProposalCollection(pg)
