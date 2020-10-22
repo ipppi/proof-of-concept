@@ -76,7 +76,8 @@ class Proposal:
         if not review:
             return f'<p>{self.uuid} {mark}</p><ul>{updates}</ul>'
         button = ('<form action=review method=POST>'
-                  f'<input type=submit name={self.uuid} value=approve></form>')
+                  f'<input type=submit name={self.uuid} value=approve></form>'
+                  if current_user.is_maintainer else '')
         return (f'<p>{self.proposer}: {self.uuid} {mark}</p>'
                 f'{button}<ul>{updates}</ul>')
 

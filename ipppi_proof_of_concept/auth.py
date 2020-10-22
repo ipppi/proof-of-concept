@@ -37,13 +37,13 @@ class User(UserMixin):
 class AccountData:
     def __init__(self, pg):
         self.pg = pg
-        self.pg.run(
+        pg.run(
             'CREATE TEMPORARY TABLE account ('
             ' username TEXT PRIMARY KEY, password TEXT,'
             ' maintainer BOOLEAN NOT NULL DEFAULT FALSE)')
-        self.pg.run('INSERT INTO account (username, password, maintainer)'
-                    ' VALUES (:username, :password, true)',
-                    username='cnx', password=crypt('cnx'))
+        pg.run('INSERT INTO account (username, password, maintainer)'
+               ' VALUES (:username, :password, true)',
+               username='cnx', password=crypt('cnx'))
 
     def user_exists(self, username):
         return bool(self.pg.run(
