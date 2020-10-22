@@ -21,8 +21,9 @@ from uuid import uuid4
 from flask import redirect, request, session, url_for
 from flask_login import login_required
 
+from .check import check_for_conflicts
 from .singletons import app, pg
-from .static import propose_pkg_html, propose_ver_html
+from .static import propose_pkg_html, propose_whl_html
 
 
 class Proposal:
@@ -30,31 +31,43 @@ class Proposal:
         self.pg = pg
         self.uuid = uuid
 
+    def __iter__(self):
+        return (whl for whl, in self.pg.run(
+            'SELECT whl FROM proposal WHERE uuid = :uuid',
+            uuid=self.uuid))
+
     def __getitem__(self, pkg):
-        return self.pg.run('SELECT version FROM proposal'
+        return self.pg.run('SELECT whl FROM proposal'
                            ' WHERE uuid = :uuid AND pkg = :pkg',
                            uuid=self.uuid, pkg=pkg)
 
-    def __setitem__(self, pkg, version):
-        self.pg.run('INSERT INTO proposal (uuid, pkg, version)'
-                    ' VALUES (:uuid, :pkg, :version)'
-                    ' ON CONFLICT (uuid, pkg)'
-                    ' DO UPDATE SET version = :version',
-                    uuid=self.uuid, pkg=pkg, version=version)
+    def __setitem__(self, pkg, whl):
+        self.pg.run('INSERT INTO proposal (uuid, pkg, whl)'
+                    ' VALUES (:uuid, :pkg, :whl)'
+                    ' ON CONFLICT (uuid, pkg) DO UPDATE SET whl = :whl',
+                    uuid=self.uuid, pkg=pkg, whl=whl)
+
+    def set_status(self, conflicts):
+        self.pg.run('INSERT INTO autocheck (uuid, conflict)'
+                    ' VALUES (:uuid, :conflict)'
+                    ' ON CONFLICT (uuid) DO UPDATE SET conflict = :conflict',
+                    uuid=self.uuid, conflict=conflicts)
 
 
 class ProposalCollection:
     def __init__(self, pg):
         self.pg = pg
         self.pg.run('CREATE TEMPORARY TABLE proposal ('
-                    ' uuid TEXT, pkg TEXT, version TEXT,'
+                    ' uuid TEXT, pkg TEXT, whl TEXT,'
                     ' PRIMARY KEY (uuid, pkg))')
+        self.pg.run('CREATE TEMPORARY TABLE autocheck ('
+                    ' uuid TEXT PRIMARY KEY, conflict BOOL)')
 
     def __getitem__(self, uuid):
         return Proposal(self.pg, uuid)
 
     def new(self):
-        return self[uuid4()]
+        return self[uuid4().hex]
 
 
 proposals = ProposalCollection(pg)
@@ -70,17 +83,23 @@ def genform(packages):
 def propose_pkg():
     if request.method == 'GET': return propose_pkg_html
     session['pkg'] = request.form['pkg'].split(',')
-    return redirect(url_for('propose_versions'))
+    return redirect(url_for('propose_whl'))
 
 
-@app.route('/propose_versions', methods=['GET', 'POST'])
+@app.route('/propose_whl', methods=['GET', 'POST'])
 @login_required
-def propose_versions():
+def propose_whl():
     if request.method == 'GET':
-        return propose_ver_html.format(
+        return propose_whl_html.format(
             ''.join(genform(session['pkg'])))
     proposal = proposals.new()
-    for pkg, version in request.form.items():
+    for pkg, whl in request.form.items():
         if pkg != 'submit':  # I'm sorry UCSB!
-            proposal[pkg] = version
+            proposal[pkg] = whl
+    try:
+        check_for_conflicts(tuple(proposal))
+    except ValueError:
+        proposal.set_status(conflicts=True)
+    else:
+        proposal.set_status(conflicts=False)
     return redirect(url_for('index'))

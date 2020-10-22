@@ -7,7 +7,8 @@ module = 'ipppi_proof_of_concept'
 author = 'Nguyễn Gia Phong'
 author-email = 'mcsinyx@disroot.org'
 home-page = 'https://github.com/ipppi/proof-of-concept'
-requires = ['flask-login', 'hasoil', 'ipfshttpclient>=0.7.0a1', 'pg8000']
+requires = ['distlib', 'flask-login', 'hasoil>=0.0.2',
+            'ipfshttpclient>=0.7.0a1', 'packaging', 'pg8000']
 description-file = 'README.md'
 classifiers = [
     'Development Status :: 1 - Planning',
