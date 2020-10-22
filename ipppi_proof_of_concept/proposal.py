@@ -21,7 +21,7 @@ from uuid import uuid4
 from flask import redirect, request, session, url_for
 from flask_login import current_user, login_required
 
-from .check import check_for_conflicts
+from .metadata import metadata
 from .singletons import app, pg
 from .static import mine_html, propose_pkg_html, propose_whl_html, review_html
 
@@ -143,7 +143,7 @@ def propose_whl():
         if pkg != 'submit':  # I'm sorry UCSB!
             proposal[pkg] = whl
     try:
-        check_for_conflicts(proposal)
+        metadata.check_for_conflicts(proposal)
     except:  # noqa
         proposal.set_status(conflicts=True)
     else:

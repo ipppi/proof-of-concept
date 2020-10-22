@@ -19,8 +19,8 @@
 from flask import redirect, url_for
 from flask_login import login_required
 
-from .check import check_for_conflicts
 from .fetch import fetcher
+from .metadata import metadata
 from .proposal import proposals
 from .singletons import app, ipfs
 
@@ -30,11 +30,13 @@ from .singletons import app, ipfs
 def update(uuid):
     proposal = proposals[uuid]
     try:
-        check_for_conflicts(proposal)
+        metadata.check_for_conflicts(proposal)
     except:  # noqa
         return "sounds good, doesn't work"
     else:
-        for whl in proposal: print(ipfs.add(fetcher[whl]))
+        for whl in proposal:
+            metadata.update(whl)
+            print(ipfs.add(fetcher[whl]))
     finally:
         del proposals[proposal.uuid]
     return redirect(url_for('index'))
