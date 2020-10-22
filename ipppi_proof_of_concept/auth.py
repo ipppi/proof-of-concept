@@ -38,8 +38,9 @@ class AccountData:
     def __init__(self, pg):
         self.pg = pg
         self.pg.run(
-            'CREATE TEMPORARY TABLE account'
-            '(username TEXT, password TEXT, maintainer BOOLEAN NOT NULL)')
+            'CREATE TEMPORARY TABLE account ('
+            ' username TEXT PRIMARY KEY, password TEXT,'
+            ' maintainer BOOLEAN NOT NULL DEFAULT FALSE)')
         self.pg.run('INSERT INTO account (username, password, maintainer)'
                     ' VALUES (:username, :password, true)',
                     username='cnx', password=crypt('cnx'))
@@ -50,8 +51,8 @@ class AccountData:
 
     def add(self, username, password):
         if self.user_exists(username): return False
-        self.pg.run('INSERT INTO account (username, password, maintainer)'
-                    ' VALUES (:username, :password, false)',
+        self.pg.run('INSERT INTO account (username, password)'
+                    ' VALUES (:username, :password)',
                     username=username, password=crypt(password))
         return True
 
