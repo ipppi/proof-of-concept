@@ -27,5 +27,5 @@ def read(resource):
 index_html = read('index.html')
 register_html = read('register.html')
 login_html = read('login.html')
-propose_names_html = read('propose_names.html')
-propose_versions_html = read('propose_versions.html')
+propose_pkg_html = read('propose_pkg.html')
+propose_ver_html = read('propose_ver.html')

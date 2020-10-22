@@ -22,7 +22,7 @@ from flask import redirect, request, session, url_for
 from flask_login import login_required
 
 from .singletons import app, pg
-from .static import propose_names_html, propose_versions_html
+from .static import propose_pkg_html, propose_ver_html
 
 
 class Proposal:
@@ -30,25 +30,25 @@ class Proposal:
         self.pg = pg
         self.uuid = uuid
 
-    def __getitem__(self, project):
+    def __getitem__(self, pkg):
         return self.pg.run('SELECT version FROM proposal'
-                           ' WHERE uuid = :uuid AND project = :project',
-                           uuid=self.uuid, project=project)
+                           ' WHERE uuid = :uuid AND pkg = :pkg',
+                           uuid=self.uuid, pkg=pkg)
 
-    def __setitem__(self, project, version):
-        self.pg.run('INSERT INTO proposal (uuid, project, version)'
-                    ' VALUES (:uuid, :project, :version)'
-                    ' ON CONFLICT (uuid, project)'
+    def __setitem__(self, pkg, version):
+        self.pg.run('INSERT INTO proposal (uuid, pkg, version)'
+                    ' VALUES (:uuid, :pkg, :version)'
+                    ' ON CONFLICT (uuid, pkg)'
                     ' DO UPDATE SET version = :version',
-                    uuid=self.uuid, project=project, version=version)
+                    uuid=self.uuid, pkg=pkg, version=version)
 
 
 class ProposalCollection:
     def __init__(self, pg):
         self.pg = pg
         self.pg.run('CREATE TEMPORARY TABLE proposal ('
-                    ' uuid TEXT, project TEXT, version TEXT,'
-                    ' PRIMARY KEY (uuid, project))')
+                    ' uuid TEXT, pkg TEXT, version TEXT,'
+                    ' PRIMARY KEY (uuid, pkg))')
 
     def __getitem__(self, uuid):
         return Proposal(self.pg, uuid)
@@ -60,16 +60,16 @@ class ProposalCollection:
 proposals = ProposalCollection(pg)
 
 
-def genform(names):
-    for name in names:
-        yield f'<input type=text name={name} id={name} placeholder={name}><br>'
+def genform(packages):
+    for pkg in packages:
+        yield f'<input type=text name={pkg} id={pkg} placeholder={pkg}><br>'
 
 
-@app.route('/propose_names', methods=['GET', 'POST'])
+@app.route('/propose_pkg', methods=['GET', 'POST'])
 @login_required
-def propose_names():
-    if request.method == 'GET': return propose_names_html
-    session['names'] = request.form['names'].split(',')
+def propose_pkg():
+    if request.method == 'GET': return propose_pkg_html
+    session['pkg'] = request.form['pkg'].split(',')
     return redirect(url_for('propose_versions'))
 
 
@@ -77,10 +77,10 @@ def propose_names():
 @login_required
 def propose_versions():
     if request.method == 'GET':
-        return propose_versions_html.format(
-            ''.join(genform(session['names'])))
+        return propose_ver_html.format(
+            ''.join(genform(session['pkg'])))
     proposal = proposals.new()
-    for name in request.form:
-        if name != 'submit':  # I'm sorry UCSB!
-            proposal[name] = request.form[name]
+    for pkg, version in request.form.items():
+        if pkg != 'submit':  # I'm sorry UCSB!
+            proposal[pkg] = version
     return redirect(url_for('index'))
