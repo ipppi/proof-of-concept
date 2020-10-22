@@ -22,33 +22,33 @@ from hmac import compare_digest
 from flask import redirect, request, url_for
 from flask_login import LoginManager, UserMixin, login_user, logout_user
 
-from .singletons import app, con
+from .singletons import app, pg
 from .static import login_html, register_html
 
 
 class AccountData:
-    def __init__(self, con):
-        self.con = con
-        self.con.run(
+    def __init__(self, pg):
+        self.pg = pg
+        self.pg.run(
             'CREATE TEMPORARY TABLE account'
             '(username TEXT, password TEXT, maintainer BOOLEAN NOT NULL)')
-        self.con.run('INSERT INTO account (username, password, maintainer)'
-                     ' VALUES (:username, :password, true)',
-                     username='cnx', password=crypt('cnx'))
+        self.pg.run('INSERT INTO account (username, password, maintainer)'
+                    ' VALUES (:username, :password, true)',
+                    username='cnx', password=crypt('cnx'))
 
     def user_exists(self, username):
-        return bool(self.con.run(
+        return bool(self.pg.run(
             f"SELECT username FROM account WHERE username='{username}'"))
 
     def add(self, username, password):
         if self.user_exists(username): return False
-        self.con.run('INSERT INTO account (username, password, maintainer)'
-                     ' VALUES (:username, :password, false)',
-                     username=username, password=crypt(password))
+        self.pg.run('INSERT INTO account (username, password, maintainer)'
+                    ' VALUES (:username, :password, false)',
+                    username=username, password=crypt(password))
         return True
 
     def authenticate(self, username, password):
-        passwords = self.con.run(
+        passwords = self.pg.run(
             f"SELECT password FROM account WHERE username='{username}'")
         try:
             digest = passwords[0][0]
@@ -64,7 +64,7 @@ class User(UserMixin):
 
 
 login_manager = LoginManager(app)
-accounts = AccountData(con)
+accounts = AccountData(pg)
 
 
 @login_manager.user_loader
