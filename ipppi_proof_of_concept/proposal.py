@@ -60,6 +60,17 @@ class Proposal:
                     ' WHERE uuid = :uuid',
                     uuid=self.uuid, conflict=conflicts)
 
+    def to_html(self):
+        (conflict,), = self.pg.run(
+            'SELECT conflict FROM proposal WHERE uuid = :uuid', uuid=self.uuid)
+        mark = '❌' if conflict else '✔️'
+        updates = ''.join(f'<li>{pkg} @ {whl}</li>'
+                          for pkg, whl in self.pg.run(
+                              'SELECT pkg, whl FROM whlupdate'
+                              ' WHERE uuid = :uuid',
+                              uuid=self.uuid))
+        return f'<p>{self.uuid} {mark}</p><ul>{updates}</ul>'
+
 
 class ProposalCollection:
     def __init__(self, pg):
@@ -77,17 +88,10 @@ class ProposalCollection:
         return Proposal(self.pg, uuid4().hex, current_user.get_id())
 
     def from_current_user(self):
-        proposer = current_user.get_id()
-        for uuid, conflict in self.pg.run('SELECT uuid, conflict FROM proposal'
-                                          ' WHERE proposer = :proposer',
-                                          proposer=proposer):
-            mark = '❌' if conflict else '✔️'
-            updates = ''.join(f'<li>{pkg} @ {whl}</li>'
-                              for pkg, whl in self.pg.run(
-                                  'SELECT pkg, whl FROM whlupdate'
-                                  ' WHERE uuid = :uuid',
-                                  uuid=uuid))
-            yield f'<p>{uuid} {mark}</p><ul>{updates}</ul>'
+        for uuid, in self.pg.run('SELECT uuid FROM proposal'
+                                 ' WHERE proposer = :proposer',
+                                 proposer=current_user.get_id()):
+            yield Proposal(self.pg, uuid).to_html()
 
 
 proposals = ProposalCollection(pg)
@@ -118,7 +122,7 @@ def propose_whl():
             proposal[pkg] = whl
     try:
         check_for_conflicts(tuple(proposal))
-    except ValueError:
+    except:  # noqa
         proposal.set_status(conflicts=True)
     else:
         proposal.set_status(conflicts=False)
