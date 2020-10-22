@@ -26,6 +26,14 @@ from .singletons import app, pg
 from .static import login_html, register_html
 
 
+class User(UserMixin):
+    def __init__(self, username, is_maintainer):
+        self.username = username
+        self.is_maintainer = is_maintainer
+
+    def get_id(self): return self.username
+
+
 class AccountData:
     def __init__(self, pg):
         self.pg = pg
@@ -57,10 +65,13 @@ class AccountData:
         else:
             return compare_digest(digest, crypt(password, digest))
 
-
-class User(UserMixin):
-    def __init__(self, username):
-        self.id = username
+    def __getitem__(self, username):
+        is_maintainer = self.pg.run(
+            f"SELECT maintainer FROM account WHERE username='{username}'")
+        try:
+            return User(username, is_maintainer[0][0])
+        except IndexError:
+            return None
 
 
 login_manager = LoginManager(app)
@@ -69,8 +80,7 @@ accounts = AccountData(pg)
 
 @login_manager.user_loader
 def load_user(username):
-    if not accounts.user_exists(username): return None
-    return User(username)
+    return accounts[username]
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -87,7 +97,7 @@ def login():
     username = request.form['username']
     if not accounts.authenticate(username, request.form['password']):
         return 'bad login'
-    login_user(User(username))
+    login_user(accounts[username])
     return redirect(url_for('index'))
 
 
