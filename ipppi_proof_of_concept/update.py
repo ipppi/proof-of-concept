@@ -34,9 +34,8 @@ def update(uuid):
     except:  # noqa
         return "sounds good, doesn't work"
     else:
-        for whl in proposal:
-            metadata.update(whl)
-            print(ipfs.add(fetcher[whl]))
+        parent = ipfs.add(fetcher.proposal_dir(uuid))[-1]['Hash']
+        for whl in proposal: metadata.update(whl, uuid, parent)
     finally:
         del proposals[proposal.uuid]
     return redirect(url_for('index'))

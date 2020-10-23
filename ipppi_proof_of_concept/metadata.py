@@ -28,7 +28,7 @@ class MetadataSystem:
     def __init__(self, pg):
         self.pg = pg
         pg.run('CREATE TEMPORARY TABLE release ('
-               ' pkg TEXT PRIMARY KEY, version TEXT)')
+               ' pkg TEXT PRIMARY KEY, version TEXT, url TEXT)')
         pg.run('CREATE TEMPORARY TABLE dependency ('
                ' pkg TEXT PRIMARY KEY, requirement TEXT)')
 
@@ -40,26 +40,28 @@ class MetadataSystem:
     def requirements(self):
         return list(self.pg.run('SELECT requirement FROM dependency'))
 
-    def load(self, whl):
-        w = Wheel(fetcher[whl])
+    def load(self, whl, uuid):
+        w = Wheel(fetcher.fetch(whl, uuid))
         return (canonicalize_name(w.name), w.version,
                 # Argh distlib.metadata.Metadata.dependencies is broken!
                 w.metadata.todict().get('requires_dist', []))
 
-    def update(self, whl):
-        pkg, version, req = self.load(whl)
+    def update(self, whl, uuid, parent):
+        pkg, version, req = self.load(whl, uuid)
         self.pg.run('DELETE FROM release WHERE pkg = :pkg', pkg=pkg)
-        self.pg.run('INSERT INTO release (pkg, version)'
-                    ' VALUES (:pkg, :version)', pkg=pkg, version=version)
+        self.pg.run('INSERT INTO release (pkg, version, url)'
+                    ' VALUES (:pkg, :version, :url)',
+                    pkg=pkg, version=version,
+                    url=f'https://ipfs.io/ipfs/{parent}/{whl}')
         self.pg.run('DELETE FROM dependency WHERE pkg = :pkg', pkg=pkg)
         for r in req:
             self.pg.run('INSERT INTO dependency (pkg, requirement)'
                         ' VALUES (:pkg, :requirement)', pkg=pkg, req=r)
 
-    def check_for_conflicts(self, wheels):
+    def check_for_conflicts(self, proposal):
         versions, requirements = self.versions, self.requirements
-        for whl in wheels:
-            pkg, version, req = self.load(whl)
+        for whl in proposal:
+            pkg, version, req = self.load(whl, proposal.uuid)
             versions[pkg] = version
             requirements.extend(req)
         print(versions, requirements)

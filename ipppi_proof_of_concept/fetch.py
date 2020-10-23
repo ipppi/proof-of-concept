@@ -17,6 +17,7 @@
 # along with IPPPI.  If not, see <https://www.gnu.org/licenses/>.
 
 from functools import lru_cache
+from os import makedirs
 from os.path import basename, join
 from tempfile import mkdtemp
 from urllib.request import urlopen
@@ -27,11 +28,15 @@ class WheelFetcher:
         self.dir = mkdtemp(prefix='ipppi-')  # this needs clean up
 
     @lru_cache(maxsize=None)
-    def __getitem__(self, whl):
-        filename = join(self.dir, basename(whl))
+    def fetch(self, whl, uuid):
+        filename = join(self.dir, uuid, basename(whl))
+        makedirs(self.proposal_dir(uuid), exist_ok=True)
         with urlopen(whl) as fi, open(filename, 'wb') as fo:
             fo.write(fi.read())
         return filename
+
+    def proposal_dir(self, uuid):
+        return join(self.dir, uuid)
 
 
 fetcher = WheelFetcher()
