@@ -16,6 +16,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with IPPPI.  If not, see <https://www.gnu.org/licenses/>.
 
+from os.path import basename
+
 from distlib.wheel import Wheel
 from hasoil import has_conflict
 from packaging.utils import canonicalize_name
@@ -34,7 +36,7 @@ class MetadataSystem:
 
     @property
     def versions(self):
-        return dict(self.pg.run('SELECT * FROM release'))
+        return dict(self.pg.run('SELECT pkg, version FROM release'))
 
     @property
     def requirements(self):
@@ -52,11 +54,15 @@ class MetadataSystem:
         self.pg.run('INSERT INTO release (pkg, version, url)'
                     ' VALUES (:pkg, :version, :url)',
                     pkg=pkg, version=version,
-                    url=f'https://ipfs.io/ipfs/{parent}/{whl}')
+                    url=f'https://ipfs.io/ipfs/{parent}/{basename(whl)}')
         self.pg.run('DELETE FROM dependency WHERE pkg = :pkg', pkg=pkg)
         for r in req:
             self.pg.run('INSERT INTO dependency (pkg, requirement)'
                         ' VALUES (:pkg, :requirement)', pkg=pkg, req=r)
+
+    def url(self, pkg):
+        return self.pg.run('SELECT url FROM release WHERE pkg = :pkg',
+                           pkg=pkg)[0][0]
 
     def check_for_conflicts(self, proposal):
         versions, requirements = self.versions, self.requirements

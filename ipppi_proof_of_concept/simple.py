@@ -1,4 +1,4 @@
-# Flask app entry point
+# Update the package index
 # Copyright (C) 2020  Nguyễn Gia Phong
 #
 # This file is part of IPPPI.
@@ -16,18 +16,25 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with IPPPI.  If not, see <https://www.gnu.org/licenses/>.
 
-"""IPPPI Proof of Concept"""
+from os.path import basename
 
-__version__ = '0.0.1'
-
-from .auth import *
-from .proposal import *
-from .simple import *
+from .metadata import metadata
 from .singletons import app
-from .static import index_html
-from .update import *
+from .static import simple_html
 
 
-@app.route('/')
-def index():
-    return index_html
+@app.route('/simple/', methods=['GET'])
+def simple():
+    return simple_html.format(''.join(
+        f'<a href="/simple/{pkg}/">{pkg}</a><br>'
+        for pkg in metadata.versions))
+
+
+@app.route('/simple/<pkg>/', methods=['GET'])
+def project(pkg):
+    try:
+        url = metadata.url(pkg)
+    except IndexError:
+        return simple_html.format('')
+    else:
+        return simple_html.format(f'<a href="{url}">{basename(url)}</a>')
