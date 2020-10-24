@@ -58,7 +58,7 @@ class MetadataSystem:
         self.pg.run('DELETE FROM dependency WHERE pkg = :pkg', pkg=pkg)
         for r in req:
             self.pg.run('INSERT INTO dependency (pkg, requirement)'
-                        ' VALUES (:pkg, :requirement)', pkg=pkg, req=r)
+                        ' VALUES (:pkg, :req)', pkg=pkg, req=r)
 
     def url(self, pkg):
         return self.pg.run('SELECT url FROM release WHERE pkg = :pkg',
